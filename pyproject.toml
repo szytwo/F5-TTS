@@ -45,6 +45,8 @@ dependencies = [
     "fastapi_cdn_host",
     "uvicorn",
     "noisereduce",
+    "func-timeout",
+    "cn2an",
 ]
 
 [project.optional-dependencies]
