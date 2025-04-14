@@ -5,14 +5,16 @@ import tempfile
 import time
 from pathlib import Path
 
-import fastapi_cdn_host
 import soundfile as sf
 import torch
 import torchaudio
 import uvicorn
 from fastapi import FastAPI, File, UploadFile, Form, Query
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from func_timeout import func_timeout, FunctionTimedOut
+from starlette.middleware.cors import CORSMiddleware  # 引入 CORS中间件模块
 
 from AsrProcessor import AsrProcessor
 from AudioProcessor import AudioProcessor
@@ -27,8 +29,8 @@ from f5_tts.infer.utils_infer import (
 from f5_tts.model import DiT
 from file_utils import logging, delete_old_files_and_folders
 
-app = FastAPI()
-fastapi_cdn_host.patch_docs(app)
+# 设置允许访问的域名
+origins = ["*"]  # "*"，即为所有。
 # load models
 DEFAULT_TTS_MODEL = "F5-TTS_v1"
 tts_model_choice = DEFAULT_TTS_MODEL
@@ -134,6 +136,9 @@ def basic_tts(ref_audio_input, ref_text_input, gen_text_input, remove_silence, c
     if not ref_text_input:
         asr_processor = AsrProcessor()
         ref_text_input = asr_processor.asr_to_text(ref_audio_input)
+
+    logging.info(f"ref_text_input： {ref_text_input}")
+
     audio_out, ref_text_out = infer(
         ref_audio_input,
         ref_text_input,
@@ -147,11 +152,65 @@ def basic_tts(ref_audio_input, ref_text_input, gen_text_input, remove_silence, c
     return audio_out, ref_text_out
 
 
+app = FastAPI(docs_url=None)
+# noinspection PyTypeChecker
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # 设置允许的origins来源
+    allow_credentials=True,
+    allow_methods=["*"],  # 设置允许跨域的http方法，比如 get、post、put等。
+    allow_headers=["*"])  # 允许跨域的headers，可以用来鉴别来源等作用。
+# 挂载静态文件
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+# 使用本地的 Swagger UI 静态资源
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui_html():
+    logging.info("Custom Swagger UI endpoint hit")
+    return get_swagger_ui_html(
+        openapi_url="/openapi.json",
+        title="Custom Swagger UI",
+        swagger_js_url="/static/swagger-ui/5.9.0/swagger-ui-bundle.js",
+        swagger_css_url="/static/swagger-ui/5.9.0/swagger-ui.css",
+    )
+
+
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    return """
+    <!DOCTYPE html>
+    <html>
+        <head>
+            <meta charset=utf-8>
+            <title>Api information</title>
+        </head>
+        <body>
+            <a href='./docs'>Documents of API</a>
+        </body>
+    </html>
+    """
+
+
+@app.get('/test')
+async def test():
+    """
+    测试接口，用于验证服务是否正常运行。
+    """
+    return PlainTextResponse('success')
+
+
 @app.post("/zero_shot/")
 async def zero_shot(
-        prompt_wav: UploadFile = File(...),
-        prompt_text: str = Form(...),
-        text: str = Form(...),
+        prompt_wav: UploadFile = File(
+            ...,
+            description="选择prompt音频文件，注意采样率不低于16khz"
+        ),
+        prompt_text: str = Form(
+            ...,
+            description="请输入prompt文本，需与prompt音频内容一致，空为自动识别"
+        ),
+        text: str = Form(..., description="输入合成文本"),
         remove_silence: bool = Form(default=False),
         cross_fade_duration: float = Form(default=0.15),
         nfe_steps: int = Form(default=32),
