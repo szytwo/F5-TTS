@@ -52,8 +52,7 @@ WORKDIR /code
 COPY . /code
 
 # 升级 pip 并安装 Python 依赖：
-RUN git submodule update --init --recursive \
-    && pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple \
+RUN pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple \
     && pip install -e . -i https://pypi.tuna.tsinghua.edu.cn/simple \
     && rm -rf wheels
 
