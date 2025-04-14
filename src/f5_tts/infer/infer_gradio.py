@@ -16,7 +16,8 @@ import torch
 import torchaudio
 from cached_path import cached_path
 from transformers import AutoModelForCausalLM, AutoTokenizer
-
+from AudioProcessor import AudioProcessor
+from pathlib import Path
 try:
     import spaces
 
@@ -54,7 +55,12 @@ DEFAULT_TTS_MODEL_CFG = [
 
 
 # load models
+root_dir = str(Path(__file__).resolve().parent.parent.parent.parent)
+ckpts_dir=root_dir+"/ckpts"
 
+result_input_dir = root_dir+'/results/input'
+result_output_dir = root_dir+'/results/output'
+audio_processor = AudioProcessor(result_input_dir, result_output_dir)
 vocoder = load_vocoder()
 
 
@@ -252,6 +258,7 @@ with gr.Blocks() as app_tts:
             nfe_step=nfe_slider,
             speed=speed_slider,
         )
+        wav_path = audio_processor.generate_wav(audio_out[1], audio_out[0], 0.0, 1.0)
         return audio_out, spectrogram_path, ref_text_out
 
     generate_btn.click(
