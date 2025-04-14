@@ -43,7 +43,7 @@ dependencies = [
     "x_transformers>=1.31.14",
     "fastapi",
     "uvicorn",
-    "noisereduce"
+    "noisereduce",
 ]
 
 [project.optional-dependencies]
