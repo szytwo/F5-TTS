@@ -1,6 +1,6 @@
 # 使用 PyTorch 官方 CUDA 运行时镜像
 # https://hub.docker.com/r/pytorch/pytorch/tags
-FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
+FROM pytorch/pytorch:2.4.1-cuda12.4-cudnn9-runtime
 
 # 替换软件源为清华镜像
 RUN sed -i 's|archive.ubuntu.com|mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list && \
@@ -51,28 +51,22 @@ WORKDIR /code
 COPY . /code
 
 # 升级 pip 并安装 Python 依赖：
-RUN conda install -y -c conda-forge montreal-forced-aligner
-RUN conda install -y -c conda-forge spacy sudachipy sudachidict-core
-RUN pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple \
-    && pip install -r api_requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
-
-RUN pip install hanlp -U -i https://pypi.tuna.tsinghua.edu.cn/simple \
+RUN git submodule update --init --recursive \
+    && pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple \
+    && pip install -e . -i https://pypi.tuna.tsinghua.edu.cn/simple \
     && rm -rf wheels
 
 # 安装fasttext
-WORKDIR /code/fastText
+WORKDIR /code/src/third_party/fastText
 
 RUN pip install . -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 WORKDIR /code
 
-ENV MFA_ROOT_DIR="/code/MFA"
-ENV PKUSEG_HOME="/code/pkuseg"
-
 # 暴露容器端口
 EXPOSE 22
 EXPOSE 80
-EXPOSE 8119
+EXPOSE 9988
 
 # 容器启动时执行 api.py
 # CMD ["python", "api.py"]
