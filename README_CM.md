@@ -7,7 +7,6 @@ pip install -e .
 
 ```
 
-
 ## Docker镜像操作
 
 ```
@@ -52,10 +51,12 @@ git remote -v # 查看远程仓库
 git remote remove origin # 移除远程仓库连接，origin，upstream
 
 # 添加新的远程仓库，origin，upstream
-git remote add upstream https://github.com/MontrealCorpusTools/Montreal-Forced-Aligner.git 
+git remote add upstream https://github.com/szytwo/F5-TTS.git
 
 git fetch upstream # 从远程仓库拉取更新，origin，upstream
 git checkout main # 切换到主分支
 git merge upstream/main # 合并到本地分支,主分支名称可能是 ，origin，upstream，master,main 
+
+git reset --hard origin/main # 强制覆盖本地代码
 
 ```
