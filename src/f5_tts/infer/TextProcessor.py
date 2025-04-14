@@ -36,7 +36,7 @@ class TextProcessor:
         """
 
         # 加载预训练的语言检测模型
-        fasttext_model = fasttext.load_model("./fasttext/lid.176.bin")
+        fasttext_model = fasttext.load_model("./src/third_party/fastText/models/lid.176.bin")
 
         try:
             lang = None
@@ -248,7 +248,7 @@ class TextProcessor:
         def convert_timefull_to_chinese(time_str):
             """
             将时间字符串（如"8:00"）转换为中文读法（如"八点"）。
-            :param timestr: 时间字符串。
+            :param time_str: 时间字符串。
             :return: 转换后的中文时间读法。
             """
             start, end = time_str.split('-')
