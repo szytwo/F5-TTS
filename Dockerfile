@@ -15,6 +15,7 @@ ENV TZ=Asia/Shanghai
 # 更新源并安装依赖
 RUN apt-get update && \
     apt-get install -y \
+    wget curl git \
     build-essential \
     gcc g++ make \
     xz-utils \
