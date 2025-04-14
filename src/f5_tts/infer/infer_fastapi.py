@@ -207,7 +207,7 @@ async def zero_shot(
             description="选择prompt音频文件，注意采样率不低于16khz"
         ),
         prompt_text: str = Form(
-            ...,
+            default="",
             description="请输入prompt文本，需与prompt音频内容一致，空为自动识别"
         ),
         text: str = Form(..., description="输入合成文本"),
