@@ -1,29 +1,30 @@
-import fastapi_cdn_host
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException,Query
-from fastapi.responses import FileResponse,JSONResponse,StreamingResponse
-from file_utils import load_wav, logging, delete_old_files_and_folders
-import uvicorn
+import argparse
 import gc
 import json
+import tempfile
+import time
+from pathlib import Path
+
+import fastapi_cdn_host
+import soundfile as sf
 import torch
 import torchaudio
-import tempfile
-from pathlib import Path
-from AudioProcessor import AudioProcessor
-import soundfile as sf
-import time
-from TextProcessor import TextProcessor
-import argparse
+import uvicorn
+from fastapi import FastAPI, File, UploadFile, Form, Query
+from fastapi.responses import FileResponse, JSONResponse
 from func_timeout import func_timeout, FunctionTimedOut
-from f5_tts.model import DiT, UNetT
+
+from AudioProcessor import AudioProcessor
+from TextProcessor import TextProcessor
 from f5_tts.infer.utils_infer import (
     load_vocoder,
     load_model,
     preprocess_ref_audio_text,
     infer_process,
     remove_silence_for_generated_wav,
-    save_spectrogram,
 )
+from f5_tts.model import DiT
+from file_utils import logging, delete_old_files_and_folders
 
 app = FastAPI()
 fastapi_cdn_host.patch_docs(app)
@@ -39,34 +40,40 @@ DEFAULT_TTS_MODEL_CFG = [
 
 # load models
 root_dir = str(Path(__file__).resolve().parent.parent.parent.parent)
-file_dir=str(Path(__file__).resolve().parent)
-ckpts_dir=root_dir+"/ckpts"
+file_dir = str(Path(__file__).resolve().parent)
+ckpts_dir = root_dir + "/ckpts"
 
-result_input_dir = root_dir+'/results/input'
-result_output_dir = root_dir+'/results/output'
+result_input_dir = root_dir + '/results/input'
+result_output_dir = root_dir + '/results/output'
 audio_processor = AudioProcessor(result_input_dir, result_output_dir)
 
-vocoder = load_vocoder(is_local=True,local_path=ckpts_dir+"/charactr/vocos-mel-24khz")
+vocoder = load_vocoder(is_local=True, local_path=ckpts_dir + "/charactr/vocos-mel-24khz")
+
 
 def load_f5tts():
-    #ckpt_path = str(cached_path(DEFAULT_TTS_MODEL_CFG[0]))
-    ckpt_path=ckpts_dir+"/F5TTS_v1_Base/model_1250000.safetensors"
+    # ckpt_path = str(cached_path(DEFAULT_TTS_MODEL_CFG[0]))
+    ckpt_path = ckpts_dir + "/F5TTS_v1_Base/model_1250000.safetensors"
     F5TTS_model_cfg = json.loads(DEFAULT_TTS_MODEL_CFG[2])
     return load_model(DiT, F5TTS_model_cfg, ckpt_path)
 
+
 F5TTS_ema_model = load_f5tts()
 
+
 def infer(
-    ref_audio_orig,
-    ref_text,
-    gen_text,
-    model,
-    remove_silence,
-    cross_fade_duration=0.15,
-    nfe_step=32,
-    speed=1
+        ref_audio_orig,
+        ref_text,
+        gen_text,
+        model,
+        remove_silence,
+        cross_fade_duration=0.15,
+        nfe_step=32,
+        speed=1
 ):
     ref_audio, ref_text = preprocess_ref_audio_text(ref_audio_orig, ref_text)
+    final_wave = None
+    final_sample_rate = None
+
     try:
         # 记录开始时间
         start_time = time.time()
@@ -110,9 +117,6 @@ def infer(
         delete_old_files_and_folders(result_input_dir, 1)
         clear_cuda_cache()
 
-
-
-
     # Remove silence
     if remove_silence:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
@@ -124,7 +128,8 @@ def infer(
     return (final_sample_rate, final_wave), ref_text
 
 
-def basic_tts(ref_audio_input, ref_text_input, gen_text_input, remove_silence, cross_fade_duration_slider, nfe_slider,speed_slider):
+def basic_tts(ref_audio_input, ref_text_input, gen_text_input, remove_silence, cross_fade_duration_slider, nfe_slider,
+              speed_slider):
     audio_out, ref_text_out = infer(
         ref_audio_input,
         ref_text_input,
@@ -139,13 +144,15 @@ def basic_tts(ref_audio_input, ref_text_input, gen_text_input, remove_silence, c
 
 
 @app.post("/zero_shot/")
-async def zero_shot(prompt_wav: UploadFile = File(...),
-                    prompt_text: str = Form(...),
-                    text: str = Form(...),
-                    remove_silence: bool = Form(default=False),
-                    cross_fade_duration: float = Form(default=0.15),
-                    nfe_steps: int = Form(default=32),
-                    spaker: float = Form(default=1)):
+async def zero_shot(
+        prompt_wav: UploadFile = File(...),
+        prompt_text: str = Form(...),
+        text: str = Form(...),
+        remove_silence: bool = Form(default=False),
+        cross_fade_duration: float = Form(default=0.15),
+        nfe_steps: int = Form(default=32),
+        spaker: float = Form(default=1)
+):
     # 保存上传的音频文件
     ref_audio_path = f"results/input/{prompt_wav.filename}"
     with open(ref_audio_path, "wb") as buffer:
@@ -155,17 +162,19 @@ async def zero_shot(prompt_wav: UploadFile = File(...),
     text, lang = TextProcessor.ensure_sentence_ends_with_period(text, add_lang_tag)
 
     if lang == 'zh' or lang == 'zh-cn':  # 中文文本，添加引号，确保不会断句
-        keywords = TextProcessor.get_keywords(config_file=file_dir+'/keywords.json')
+        keywords = TextProcessor.get_keywords(config_file=file_dir + '/keywords.json')
         text = TextProcessor.replace_chinese_number(text)
         text = TextProcessor.add_quotation_mark(text, keywords["keywords"], min_length=2)
         text = TextProcessor.replace_pronunciation(text, keywords["cacoepy"])
 
-    print(lang,text)
+    print(lang, text)
     # 调用原有的处理函数
-    audio_out, ref_text_out = basic_tts(ref_audio_path, prompt_text, text, remove_silence,cross_fade_duration, nfe_steps, spaker)
+    audio_out, ref_text_out = basic_tts(ref_audio_path, prompt_text, text, remove_silence, cross_fade_duration,
+                                        nfe_steps, spaker)
 
     wav_path = audio_processor.generate_wav(audio_out[1], audio_out[0], 0.0, 1.0)
     return JSONResponse({"errcode": 0, "errmsg": "ok", "wav_path": wav_path})
+
 
 @app.get('/download')
 async def download(
@@ -176,6 +185,7 @@ async def download(
     音频文件下载接口。
     """
     return FileResponse(path=wav_path, filename=name, media_type='application/octet-stream')
+
 
 # 定义一个函数进行显存清理
 def clear_cuda_cache():
@@ -198,8 +208,9 @@ def clear_cuda_cache():
         logging.info(f"[GPU Memory] Reserved: {torch.cuda.memory_reserved() / (1024 ** 2):.2f} MB")
         logging.info(f"[GPU Memory] Max Reserved: {torch.cuda.max_memory_reserved() / (1024 ** 2):.2f} MB")
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--port',type=int,default=9988)
+    parser.add_argument('--port', type=int, default=9988)
     args = parser.parse_args()
     uvicorn.run(app, host="0.0.0.0", port=args.port)
