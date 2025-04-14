@@ -14,6 +14,7 @@ from fastapi import FastAPI, File, UploadFile, Form, Query
 from fastapi.responses import FileResponse, JSONResponse
 from func_timeout import func_timeout, FunctionTimedOut
 
+from AsrProcessor import AsrProcessor
 from AudioProcessor import AudioProcessor
 from TextProcessor import TextProcessor
 from f5_tts.infer.utils_infer import (
@@ -130,6 +131,9 @@ def infer(
 
 def basic_tts(ref_audio_input, ref_text_input, gen_text_input, remove_silence, cross_fade_duration_slider, nfe_slider,
               speed_slider):
+    if not ref_text_input:
+        asr_processor = AsrProcessor()
+        ref_text_input = asr_processor.asr_to_text(ref_audio_input)
     audio_out, ref_text_out = infer(
         ref_audio_input,
         ref_text_input,
