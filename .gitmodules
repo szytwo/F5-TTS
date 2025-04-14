@@ -1,3 +1,6 @@
 [submodule "src/third_party/BigVGAN"]
 	path = src/third_party/BigVGAN
 	url = https://github.com/NVIDIA/BigVGAN.git
+[submodule "src/third_party/fastText"]
+	path = src/third_party/fastText
+	url = https://github.com/szytwo/fastText.git
