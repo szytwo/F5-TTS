@@ -264,7 +264,7 @@ class TextProcessor:
                     return chinese_num + suffix  # 拼接后缀
 
             # 如果没有后缀且是4位数字，按逐字符转换
-            if (input_str.isdigit() and len(input_str) in (4, 11)) or input_str.startswith('0'):
+            if (input_str.isdigit() and len(input_str) in (4, 10, 11)) or input_str.startswith('0'):
                 return cn2an.an2cn(input_str, mode="direct")
             # 其他情况按普通数字转换
             return cn2an.an2cn(input_str, mode="low")
@@ -299,15 +299,17 @@ class TextProcessor:
         # 排除符号
         exclude_symbols = "+-/*=$|℃"
         # 逐字符转换的单位
-        direct_units = ["年"]
+        direct_units = ["年", "后"]
         # 普通数字转换的单位
         low_units = ["%", "月", "日", "小时", "分钟", "秒", "个", "人", "次", "份", "元", "美元", "米", "千克", "升",
-                     "遍",
-                     "件", "瓶", "款", "道", '天', '多', '后', '家', '双']
+                     "遍", "件", "瓶", "款", "道", '天', '多', '家', '双']
         # 动态生成 suffix_rules
         suffix_rules = {}
         for unit in direct_units:
-            suffix_rules[unit] = {"lengths": [4, 4], "mode": "direct"}  # 逐字符转换
+            if unit == "年":
+                suffix_rules[unit] = {"lengths": [4, 4], "mode": "direct"}  # 逐字符转换
+            else:
+                suffix_rules[unit] = {"lengths": [2, 2], "mode": "direct"}
         for unit in low_units:
             suffix_rules[unit] = {"mode": "low"}  # 普通数字转换
         # 构建单位正则表达式
@@ -315,7 +317,6 @@ class TextProcessor:
 
         def repl_text(m):
             s = m.group(0)
-            print(s)
             # 检查是否为时间格式
             if datetime_pattern.match(s):
                 return TextProcessor.convert_datetime_to_chinese(s)
