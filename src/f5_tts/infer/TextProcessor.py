@@ -24,8 +24,8 @@ class TextProcessor:
     # replace special symbol
     @staticmethod
     def replace_corner_mark(text):
-        text = text.replace('²', '平方')
-        text = text.replace('³', '立方')
+        text = text.replace("²", "平方")
+        text = text.replace("³", "立方")
         return text
 
     @staticmethod
@@ -37,7 +37,9 @@ class TextProcessor:
         """
 
         # 加载预训练的语言检测模型
-        fasttext_model = fasttext.load_model("./src/third_party/fastText/models/lid.176.bin")
+        fasttext_model = fasttext.load_model(
+            "./src/third_party/fastText/models/lid.176.bin"
+        )
 
         try:
             lang = None
@@ -48,7 +50,7 @@ class TextProcessor:
                 confidence = predictions[1][0]  # 置信度
                 lang = lang if confidence > 0.6 else None
 
-            logging.info(f'Detected language: {lang}')
+            logging.info(f"Detected language: {lang}")
             return lang
         except Exception as e:
             logging.error(f"Language detection failed: {e}")
@@ -66,27 +68,27 @@ class TextProcessor:
             return text, None  # 空文本直接返回
         # 根据文本内容添加适当的句号
         lang = TextProcessor.detect_language(text)
-        lang_tag = ''
+        lang_tag = ""
         if add_lang_tag:
-            if lang == 'zh' or lang == 'zh-cn':  # 中文文本
-                lang_tag = '<|zh|>'
-            elif lang == 'en':  # 英语
-                lang_tag = '<|en|>'
-            elif lang == 'ja':  # 日语
-                lang_tag = '<|jp|>'
-            elif lang == 'ko':  # 韩语
-                lang_tag = '<|ko|>'
+            if lang == "zh" or lang == "zh-cn":  # 中文文本
+                lang_tag = "<|zh|>"
+            elif lang == "en":  # 英语
+                lang_tag = "<|en|>"
+            elif lang == "ja":  # 日语
+                lang_tag = "<|jp|>"
+            elif lang == "ko":  # 韩语
+                lang_tag = "<|ko|>"
         # 判断是否已经以句号结尾
-        if text[-1] in ['.', '。', '！', '!', '？', '?']:
-            return f'{lang_tag}{text}', lang
+        if text[-1] in [".", "。", "！", "!", "？", "?"]:
+            return f"{lang_tag}{text}", lang
         # 根据文本内容添加适当的句号
-        if lang == 'zh' or lang == 'zh-cn' or lang == 'ja':  # 中文文本
-            return f'{lang_tag}{text}。', lang
+        if lang == "zh" or lang == "zh-cn" or lang == "ja":  # 中文文本
+            return f"{lang_tag}{text}。", lang
         else:  # 英文或其他
-            return f'{lang_tag}{text}.', lang
+            return f"{lang_tag}{text}.", lang
 
     @staticmethod
-    def log_error(exception: Exception, log_dir='error'):
+    def log_error(exception: Exception, log_dir="error"):
         """
         记录错误信息到指定目录，并按日期时间命名文件。
 
@@ -96,24 +98,25 @@ class TextProcessor:
         # 确保日志目录存在
         os.makedirs(log_dir, exist_ok=True)
         # 获取当前时间戳，格式化为 YYYY-MM-DD_HH-MM-SS
-        timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         # 创建日志文件路径
-        log_file_path = os.path.join(log_dir, f'error_{timestamp}.log')
+        log_file_path = os.path.join(log_dir, f"error_{timestamp}.log")
         # 使用 traceback 模块获取详细的错误信息
         error_traceback = traceback.format_exc()
         # 写入错误信息到文件
-        with open(log_file_path, 'w') as log_file:
+        with open(log_file_path, "w") as log_file:
             log_file.write(f"错误发生时间: {timestamp}\n")
             log_file.write(f"错误信息: {str(exception)}\n")
             log_file.write("堆栈信息:\n")
-            log_file.write(error_traceback + '\n')
+            log_file.write(error_traceback + "\n")
 
-        logging.error(f"错误信息: {str(exception)}\n"
-                      f"详细信息已保存至: {log_file_path}")
+        logging.error(
+            f"错误信息: {str(exception)}\n" f"详细信息已保存至: {log_file_path}"
+        )
 
     @staticmethod
-    def get_keywords(config_file='./custom/keywords.json'):
-        with open(config_file, 'r', encoding='utf-8') as file:
+    def get_keywords(config_file="./custom/keywords.json"):
+        with open(config_file, "r", encoding="utf-8") as file:
             words_list = json.load(file)
         return words_list
 
@@ -136,9 +139,9 @@ class TextProcessor:
         # logging.info(f'add quotation original text: {text}')
 
         # 常见引号标点符号
-        punctuation = r'[\[\]（）【】《》““””‘’]'
+        punctuation = r"[\[\]（）【】《》““””‘’]"
         # 分割文本为引号内外的部分
-        split_pattern = r'(“.*?”)'  # 非贪婪匹配引号内的内容
+        split_pattern = r"(“.*?”)"  # 非贪婪匹配引号内的内容
         # 按关键词长度从长到短排序
         keywords = sorted(keywords, key=len, reverse=True)
 
@@ -150,12 +153,14 @@ class TextProcessor:
                     if i % 2 == 0:
                         current_part = parts[i]
                         # 匹配时确保目标词前后没有标点符号，且没有已有的引号
-                        pattern = rf'(?<!“)(?<!{punctuation}){re.escape(word)}(?!{punctuation})(?<!”)'
+                        pattern = rf"(?<!“)(?<!{punctuation}){re.escape(word)}(?!{punctuation})(?<!”)"
                         # 使用正则表达式替换
-                        current_part = re.sub(pattern, f'“{word}”', current_part, flags=re.IGNORECASE)
+                        current_part = re.sub(
+                            pattern, f"“{word}”", current_part, flags=re.IGNORECASE
+                        )
                         parts[i] = current_part
                 # 合并所有部分
-                text = ''.join(parts)
+                text = "".join(parts)
 
         # logging.info(f'add quotation out text: {text}')
 
@@ -164,8 +169,8 @@ class TextProcessor:
     # replace meaningless symbol
     @staticmethod
     def replace_bracket(text):
-        text = text.replace('（', '“').replace('）', '”')
-        text = text.replace('【', '“').replace('】', '”')
+        text = text.replace("（", "“").replace("）", "”")
+        text = text.replace("【", "“").replace("】", "”")
         return text
 
     # remove blank between chinese character
@@ -175,8 +180,9 @@ class TextProcessor:
         out_str = []
         for i, c in enumerate(text):
             if c == " ":
-                if ((text[i + 1].isascii() and text[i + 1] != " ") and
-                        (text[i - 1].isascii() and text[i - 1] != " ")):
+                if (text[i + 1].isascii() and text[i + 1] != " ") and (
+                        text[i - 1].isascii() and text[i - 1] != " "
+                ):
                     out_str.append(c)
             else:
                 out_str.append(c)
@@ -209,7 +215,7 @@ class TextProcessor:
         chinese_parts = [
             f"{cn2an.an2cn(year, mode='direct')}年",
             f"{convert(month)}月",
-            f"{convert(day)}日"
+            f"{convert(day)}日",
         ]
 
         if time_parts:
@@ -235,28 +241,36 @@ class TextProcessor:
         if not input_str:
             return input_str
         input_str = input_str.replace(" ", "")
+        prefix = ""
+        if input_str.startswith("-") or input_str.startswith("+"):
+            prefix = "负" if input_str.startswith("-") else ""
+            input_str = input_str.replace("+", "").replace("-", "")
         # 检查是否有百分号
-        if input_str.endswith('%'):
+        if input_str.endswith("%"):
             num_part = input_str[:-1]  # 去掉百分号
             chinese_num = cn2an.an2cn(num_part, mode="low")
-            return f"百分之{chinese_num}"
+            return f"{prefix}百分之{chinese_num}"
         # 检查是否含有小数点
-        if '.' in input_str:
-            integer_part, decimal_part = input_str.split('.')
+        if "." in input_str:
+            integer_part, decimal_part = input_str.split(".")
             chinese_integer = cn2an.an2cn(integer_part, mode="low")
-            chinese_decimal = ''.join(cn2an.an2cn(digit, mode="low") for digit in decimal_part)
-            return f"{chinese_integer}点{chinese_decimal}"
+            chinese_decimal = "".join(
+                cn2an.an2cn(digit, mode="low") for digit in decimal_part
+            )
+            return f"{prefix}{chinese_integer}点{chinese_decimal}"
+        input_str = input_str.upper()
         # 检查是否有后缀
         for suffix, rule in suffix_rules.items():
+            suffix = suffix.upper()
             if input_str.endswith(suffix):
-                num_part = input_str[:-len(suffix)]  # 去掉后缀
+                num_part = input_str[: -len(suffix)]  # 去掉后缀
                 if "lengths" in rule and len(num_part) not in rule["lengths"]:
                     # 如果长度不符合规则，按普通数字转换
                     chinese_num = cn2an.an2cn(num_part, mode="low")
                 else:
                     # 按规则中的模式转换
                     chinese_num = cn2an.an2cn(num_part, mode=rule["mode"])
-                return chinese_num + suffix  # 拼接后缀
+                return f"{prefix}{chinese_num}{suffix}"  # 拼接后缀
         # 处理没有后缀年份范围（当前年份）
         if input_str.isdigit() and len(input_str) == 4:
             year = int(input_str)
@@ -264,10 +278,10 @@ class TextProcessor:
             if current_year - 1 <= year <= current_year + 1:
                 return cn2an.an2cn(input_str, mode="direct")
         # 如果没有后缀
-        if (input_str.isdigit() and len(input_str) in (10, 11)) or input_str.startswith('0'):
+        if (input_str.isdigit() and len(input_str) in (10, 11)) or input_str.startswith("0"):
             return cn2an.an2cn(input_str, mode="direct")
         # 其他情况按普通数字转换
-        return cn2an.an2cn(input_str, mode="low")
+        return f'{prefix}{cn2an.an2cn(input_str, mode="low")}'
 
     @staticmethod
     def convert_time_to_chinese(time_str):
@@ -276,7 +290,7 @@ class TextProcessor:
         :param time_str: 时间字符串（如 "8:00"）。
         :return: 转换后的中文读法。
         """
-        hours, minutes = map(int, time_str.split(':'))
+        hours, minutes = map(int, time_str.split(":"))
         chinese_hours = cn2an.an2cn(str(hours), mode="low")
         chinese_minutes = cn2an.an2cn(str(minutes), mode="low")
         if minutes == 0:
@@ -291,7 +305,7 @@ class TextProcessor:
         :param time_str: 时间字符串。
         :return: 转换后的中文时间读法。
         """
-        start, end = time_str.split('-')
+        start, end = time_str.split("-")
 
         start_time = TextProcessor.convert_time_to_chinese(start)
         end_time = TextProcessor.convert_time_to_chinese(end)
@@ -308,12 +322,38 @@ class TextProcessor:
         """
 
         # 排除符号
-        exclude_symbols = "+-/*=$|℃"
+        exclude_symbols = "/*=$|"
         # 逐字符转换的单位
         direct_units = ["年", "后"]
         # 普通数字转换的单位
-        low_units = ["%", "月", "日", "小时", "分钟", "秒", "个", "人", "次", "份", "元", "美元", "米", "千克", "升",
-                     "遍", "件", "瓶", "款", "道", '天', '多', '家', '双']
+        low_units = [
+            "%",
+            "月",
+            "日",
+            "小时",
+            "分钟",
+            "秒",
+            "个",
+            "人",
+            "次",
+            "份",
+            "元",
+            "美元",
+            "米",
+            "千克",
+            "升",
+            "遍",
+            "件",
+            "瓶",
+            "款",
+            "道",
+            "天",
+            "多",
+            "家",
+            "双",
+            "KG",
+            "℃"
+        ]
         # 动态生成 suffix_rules
         suffix_rules = {}
         for unit in direct_units:
@@ -324,7 +364,25 @@ class TextProcessor:
         for unit in low_units:
             suffix_rules[unit] = {"mode": "low"}  # 普通数字转换
         # 构建单位正则表达式
-        units_pattern = "|".join(direct_units + low_units)  # 正则表达式匹配数字部分（包括带单位和不带单位的情况）
+        units_pattern = "|".join(
+            direct_units + low_units
+        )  # 正则表达式匹配数字部分（包括带单位和不带单位的情况）
+        # 匹配多种日期时间格式，2025-04-14 22:58:46,965等
+        datetime_pattern = re.compile(
+            r"\d{4}[/-]\d{1,2}[/-]\d{1,2}(?:\s\d{1,2}:\d{1,2}(?::\d{1,2}(?:,\d{1,3})?)?)?"
+        )
+        # 匹配时间格式，8:00-23:00
+        timefull_pattern = re.compile(r"\d{1,2}:\d{2}-\d{1,2}:\d{2}")
+        # 匹配时间格式，8:00
+        time_pattern = re.compile(r"\d{1,2}:\d{2}")
+        # 匹配包含小数点(百分比)的正则表达式
+        percent_pattern = re.compile(r"\d+\.\d+%?")
+        # 匹配电话号码，包括 +86-13987654321 或 010-1234567
+        phone_pattern = re.compile(r"(?:\+?\d{2,4}-)?(?:\d{2,4}-)?\d{6,11}")
+        # 最后替换其他匹配数字部分（包括带单位和不带单位的情况）
+        pattern = re.compile(
+            rf"[+-]?\d+(?:\s*(?:{units_pattern}))|(?<!\d)[+-]?\d+(?![{units_pattern}{re.escape(exclude_symbols)}\d])"
+        )
 
         def repl_text(m):
             s = m.group(0)
@@ -335,6 +393,9 @@ class TextProcessor:
                 return TextProcessor.convert_timefull_to_chinese(s)
             elif time_pattern.match(s):
                 return TextProcessor.convert_time_to_chinese(s)
+            elif phone_pattern.match(s):
+                s = s.replace("+", "").replace("-", "")
+                return cn2an.an2cn(s, mode="direct")
 
             # 如果包含排除符号
             if any(symbol in s for symbol in exclude_symbols):
@@ -347,24 +408,11 @@ class TextProcessor:
                 logging.error(f"replace chinese number repl text error：{s}\n{str(e)}")
                 return s
 
-        # 匹配多种日期时间格式，2025-04-14 22:58:46,965等
-        datetime_pattern = re.compile(
-            r"\d{4}[/-]\d{1,2}[/-]\d{1,2}(?:\s\d{1,2}:\d{1,2}(?::\d{1,2}(?:,\d{1,3})?)?)?"
-        )
         text = datetime_pattern.sub(repl_text, text)
-        # 匹配时间格式，8:00-23:00
-        timefull_pattern = re.compile(r'\d{1,2}:\d{2}-\d{1,2}:\d{2}')
         text = timefull_pattern.sub(repl_text, text)
-        # 匹配时间格式，8:00
-        time_pattern = re.compile(r'\d{1,2}:\d{2}')
         text = time_pattern.sub(repl_text, text)
-        # 匹配包含小数点(百分比)的正则表达式
-        percent_pattern = re.compile(r"\d+\.\d+%?")
         text = percent_pattern.sub(repl_text, text)
-        # 最后替换其他匹配数字部分（包括带单位和不带单位的情况）
-        pattern = re.compile(
-            rf"\d+(?:\s*(?:{units_pattern}))|(?<!\d)\d+(?![{units_pattern}{re.escape(exclude_symbols)}\d])"
-        )
+        text = phone_pattern.sub(repl_text, text)
         text = pattern.sub(repl_text, text)
 
         return text
