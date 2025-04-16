@@ -264,7 +264,7 @@ class TextProcessor:
                     return chinese_num + suffix  # 拼接后缀
 
             # 如果没有后缀且是4位数字，按逐字符转换
-            if input_str.isdigit() and len(input_str) == 4 or "00".__eq__(input_str):
+            if (input_str.isdigit() and len(input_str) in (4, 11)) or input_str.startswith('0'):
                 return cn2an.an2cn(input_str, mode="direct")
             # 其他情况按普通数字转换
             return cn2an.an2cn(input_str, mode="low")
@@ -312,23 +312,10 @@ class TextProcessor:
             suffix_rules[unit] = {"mode": "low"}  # 普通数字转换
         # 构建单位正则表达式
         units_pattern = "|".join(direct_units + low_units)  # 正则表达式匹配数字部分（包括带单位和不带单位的情况）
-        # 正则表达式匹配数字部分（包括带单位和不带单位的情况）
-        pattern = re.compile(
-            rf"\d+(?:\s*(?:{units_pattern}))|(?<!\d)\d{{4}}(?![{units_pattern}{re.escape(exclude_symbols)}\d])"
-        )
-        # 匹配时间格式的正则表达式
-        # 匹配多种日期时间格式
-        datetime_pattern = re.compile(
-            r"\d{4}[/-]\d{1,2}[/-]\d{1,2}(?:\s\d{1,2}:\d{1,2}(?::\d{1,2}(?:,\d{1,3})?)?)?"
-        )
-
-        time_pattern = re.compile(r'\d{1,2}:\d{2}')
-        timefull_pattern = re.compile(r'\d{1,2}:\d{2}-\d{1,2}:\d{2}')
-        # 匹配包含小数点(百分比)的正则表达式
-        percent_pattern = re.compile(r"\d+\.\d+%?")
 
         def repl_text(m):
             s = m.group(0)
+            print(s)
             # 检查是否为时间格式
             if datetime_pattern.match(s):
                 return TextProcessor.convert_datetime_to_chinese(s)
@@ -348,14 +335,26 @@ class TextProcessor:
                 logging.error(f"replace chinese number repl text error：{s}\n{str(e)}")
                 return s
 
-        # 替换时间格式
+        # 匹配多种日期时间格式，2025-04-14 22:58:46,965等
+        datetime_pattern = re.compile(
+            r"\d{4}[/-]\d{1,2}[/-]\d{1,2}(?:\s\d{1,2}:\d{1,2}(?::\d{1,2}(?:,\d{1,3})?)?)?"
+        )
         text = datetime_pattern.sub(repl_text, text)
+        # 匹配时间格式，8:00-23:00
+        timefull_pattern = re.compile(r'\d{1,2}:\d{2}-\d{1,2}:\d{2}')
         text = timefull_pattern.sub(repl_text, text)
+        # 匹配时间格式，8:00
+        time_pattern = re.compile(r'\d{1,2}:\d{2}')
         text = time_pattern.sub(repl_text, text)
-        # 首先替换百分比和小数
+        # 匹配包含小数点(百分比)的正则表达式
+        percent_pattern = re.compile(r"\d+\.\d+%?")
         text = percent_pattern.sub(repl_text, text)
-        # 最后替换其他情况
+        # 最后替换其他匹配数字部分（包括带单位和不带单位的情况）
+        pattern = re.compile(
+            rf"\d+(?:\s*(?:{units_pattern}))|(?<!\d)\d+(?![{units_pattern}{re.escape(exclude_symbols)}\d])"
+        )
         text = pattern.sub(repl_text, text)
+
         return text
 
     @staticmethod
