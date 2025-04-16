@@ -137,8 +137,6 @@ def basic_tts(ref_audio_input, ref_text_input, gen_text_input, remove_silence, c
         asr_processor = AsrProcessor()
         ref_text_input = asr_processor.asr_to_text(ref_audio_input)
 
-    logging.info(f"ref_text_input： {ref_text_input}")
-
     audio_out, ref_text_out = infer(
         ref_audio_input,
         ref_text_input,
