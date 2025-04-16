@@ -186,7 +186,10 @@ class TextProcessor:
     def convert_datetime_to_chinese(datetime_str):
         parts = datetime_str.split(" ")
         date_part = parts[0]
-        year, month, day = date_part.split("-")
+        if "-" in date_part:
+            year, month, day = date_part.split("-")
+        elif "/" in date_part:
+            year, month, day = date_part.split("/")
 
         time_parts = []
         if len(parts) > 1:
@@ -314,7 +317,7 @@ class TextProcessor:
         # 匹配时间格式的正则表达式
         # 匹配多种日期时间格式
         datetime_pattern = re.compile(
-            r"\d{4}-\d{1,2}-\d{1,2}(?:\s\d{1,2}:\d{1,2}(?::\d{1,2}(?:,\d{1,3})?)?)?"
+            r"\d{4}[/-]\d{1,2}[/-]\d{1,2}(?:\s\d{1,2}:\d{1,2}(?::\d{1,2}(?:,\d{1,3})?)?)?"
         )
 
         time_pattern = re.compile(r'\d{1,2}:\d{2}')
