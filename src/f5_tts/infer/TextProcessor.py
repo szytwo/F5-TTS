@@ -222,6 +222,82 @@ class TextProcessor:
 
         return "".join(chinese_parts)
 
+    @staticmethod
+    def convert_num_to_chinese(input_str, suffix_rules=None):
+        """
+        根据输入字符串智能转换数字部分。
+        :param input_str: 输入字符串（如 "2003计划"、"20年"、"2008份"）。
+        :param suffix_rules: {"年":{"mode": "low"}}
+        :return: 转换后的中文读法。
+        """
+        if suffix_rules is None:
+            suffix_rules = {}
+        if not input_str:
+            return input_str
+        input_str = input_str.replace(" ", "")
+        # 检查是否有百分号
+        if input_str.endswith('%'):
+            num_part = input_str[:-1]  # 去掉百分号
+            chinese_num = cn2an.an2cn(num_part, mode="low")
+            return f"百分之{chinese_num}"
+        # 检查是否含有小数点
+        if '.' in input_str:
+            integer_part, decimal_part = input_str.split('.')
+            chinese_integer = cn2an.an2cn(integer_part, mode="low")
+            chinese_decimal = ''.join(cn2an.an2cn(digit, mode="low") for digit in decimal_part)
+            return f"{chinese_integer}点{chinese_decimal}"
+        # 检查是否有后缀
+        for suffix, rule in suffix_rules.items():
+            if input_str.endswith(suffix):
+                num_part = input_str[:-len(suffix)]  # 去掉后缀
+                if "lengths" in rule and len(num_part) not in rule["lengths"]:
+                    # 如果长度不符合规则，按普通数字转换
+                    chinese_num = cn2an.an2cn(num_part, mode="low")
+                else:
+                    # 按规则中的模式转换
+                    chinese_num = cn2an.an2cn(num_part, mode=rule["mode"])
+                return chinese_num + suffix  # 拼接后缀
+        # 处理没有后缀年份范围（当前年份）
+        if input_str.isdigit() and len(input_str) == 4:
+            year = int(input_str)
+            current_year = datetime.datetime.now().year
+            if current_year - 1 <= year <= current_year + 1:
+                return cn2an.an2cn(input_str, mode="direct")
+        # 如果没有后缀
+        if (input_str.isdigit() and len(input_str) in (10, 11)) or input_str.startswith('0'):
+            return cn2an.an2cn(input_str, mode="direct")
+        # 其他情况按普通数字转换
+        return cn2an.an2cn(input_str, mode="low")
+
+    @staticmethod
+    def convert_time_to_chinese(time_str):
+        """
+        将时间字符串转换为中文读法。
+        :param time_str: 时间字符串（如 "8:00"）。
+        :return: 转换后的中文读法。
+        """
+        hours, minutes = map(int, time_str.split(':'))
+        chinese_hours = cn2an.an2cn(str(hours), mode="low")
+        chinese_minutes = cn2an.an2cn(str(minutes), mode="low")
+        if minutes == 0:
+            return f"{chinese_hours}点"
+        else:
+            return f"{chinese_hours}点{chinese_minutes}"
+
+    @staticmethod
+    def convert_timefull_to_chinese(time_str):
+        """
+        将时间字符串（如"8:00"）转换为中文读法（如"八点"）。
+        :param time_str: 时间字符串。
+        :return: 转换后的中文时间读法。
+        """
+        start, end = time_str.split('-')
+
+        start_time = TextProcessor.convert_time_to_chinese(start)
+        end_time = TextProcessor.convert_time_to_chinese(end)
+
+        return f"{start_time}到{end_time}"
+
     # noinspection PyTypeChecker
     @staticmethod
     def replace_chinese_number(text):
@@ -230,76 +306,6 @@ class TextProcessor:
         :param text: 输入文本。
         :return: 替换后的文本。
         """
-
-        def smart_convert(input_str):
-            """
-            根据输入字符串智能转换数字部分。
-            :param input_str: 输入字符串（如 "2003计划"、"20年"、"2008份"）。
-            :return: 转换后的中文读法。
-            """
-            if not input_str:
-                return input_str
-            input_str = input_str.replace(" ", "")
-            # 检查是否有百分号
-            if input_str.endswith('%'):
-                num_part = input_str[:-1]  # 去掉百分号
-                chinese_num = cn2an.an2cn(num_part, mode="low")
-                return f"百分之{chinese_num}"
-            # 检查是否含有小数点
-            if '.' in input_str:
-                integer_part, decimal_part = input_str.split('.')
-                chinese_integer = cn2an.an2cn(integer_part, mode="low")
-                chinese_decimal = ''.join(cn2an.an2cn(digit, mode="low") for digit in decimal_part)
-                return f"{chinese_integer}点{chinese_decimal}"
-            # 检查是否有后缀
-            for suffix, rule in suffix_rules.items():
-                if input_str.endswith(suffix):
-                    num_part = input_str[:-len(suffix)]  # 去掉后缀
-                    if "lengths" in rule and len(num_part) not in rule["lengths"]:
-                        # 如果长度不符合规则，按普通数字转换
-                        chinese_num = cn2an.an2cn(num_part, mode="low")
-                    else:
-                        # 按规则中的模式转换
-                        chinese_num = cn2an.an2cn(num_part, mode=rule["mode"])
-                    return chinese_num + suffix  # 拼接后缀
-            # 处理没有后缀年份范围（当前年份）
-            if input_str.isdigit() and len(input_str) == 4:
-                year = int(input_str)
-                current_year = datetime.datetime.now().year
-                if current_year - 1 <= year <= current_year + 1:
-                    return cn2an.an2cn(input_str, mode="direct")
-            # 如果没有后缀
-            if (input_str.isdigit() and len(input_str) in (10, 11)) or input_str.startswith('0'):
-                return cn2an.an2cn(input_str, mode="direct")
-            # 其他情况按普通数字转换
-            return cn2an.an2cn(input_str, mode="low")
-
-        def convert_time_to_chinese(time_str):
-            """
-            将时间字符串转换为中文读法。
-            :param time_str: 时间字符串（如 "8:00"）。
-            :return: 转换后的中文读法。
-            """
-            hours, minutes = map(int, time_str.split(':'))
-            chinese_hours = cn2an.an2cn(str(hours), mode="low")
-            chinese_minutes = cn2an.an2cn(str(minutes), mode="low")
-            if minutes == 0:
-                return f"{chinese_hours}点"
-            else:
-                return f"{chinese_hours}点{chinese_minutes}"
-
-        def convert_timefull_to_chinese(time_str):
-            """
-            将时间字符串（如"8:00"）转换为中文读法（如"八点"）。
-            :param time_str: 时间字符串。
-            :return: 转换后的中文时间读法。
-            """
-            start, end = time_str.split('-')
-
-            start_time = convert_time_to_chinese(start)
-            end_time = convert_time_to_chinese(end)
-
-            return f"{start_time}到{end_time}"
 
         # 排除符号
         exclude_symbols = "+-/*=$|℃"
@@ -326,16 +332,16 @@ class TextProcessor:
             if datetime_pattern.match(s):
                 return TextProcessor.convert_datetime_to_chinese(s)
             elif timefull_pattern.match(s):
-                return convert_timefull_to_chinese(s)
+                return TextProcessor.convert_timefull_to_chinese(s)
             elif time_pattern.match(s):
-                return convert_time_to_chinese(s)
+                return TextProcessor.convert_time_to_chinese(s)
 
             # 如果包含排除符号
             if any(symbol in s for symbol in exclude_symbols):
                 return s
 
             try:
-                return smart_convert(s)
+                return TextProcessor.convert_num_to_chinese(s, suffix_rules)
             except Exception as e:
                 TextProcessor.log_error(e)
                 logging.error(f"replace chinese number repl text error：{s}\n{str(e)}")
