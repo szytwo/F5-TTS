@@ -262,9 +262,14 @@ class TextProcessor:
                         # 按规则中的模式转换
                         chinese_num = cn2an.an2cn(num_part, mode=rule["mode"])
                     return chinese_num + suffix  # 拼接后缀
-
-            # 如果没有后缀且是4位数字，按逐字符转换
-            if (input_str.isdigit() and len(input_str) in (4, 10, 11)) or input_str.startswith('0'):
+            # 处理年份范围（1901-当前年份）
+            if input_str.isdigit() and len(input_str) == 4:
+                year = int(input_str)
+                current_year = datetime.datetime.now().year
+                if 1901 <= year <= current_year:
+                    return cn2an.an2cn(input_str, mode="direct")  # 如 "1901" → "一九零一"
+            # 如果没有后缀
+            if (input_str.isdigit() and len(input_str) in (10, 11)) or input_str.startswith('0'):
                 return cn2an.an2cn(input_str, mode="direct")
             # 其他情况按普通数字转换
             return cn2an.an2cn(input_str, mode="low")
