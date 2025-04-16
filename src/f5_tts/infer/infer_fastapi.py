@@ -227,7 +227,7 @@ async def zero_shot(
     if lang == 'zh' or lang == 'zh-cn':  # 中文文本，添加引号，确保不会断句
         keywords = TextProcessor.get_keywords(config_file=file_dir + '/keywords.json')
         text = TextProcessor.replace_chinese_number(text)
-        text = TextProcessor.add_quotation_mark(text, keywords["keywords"], min_length=2)
+        # text = TextProcessor.add_quotation_mark(text, keywords["keywords"], min_length=2)
         text = TextProcessor.replace_pronunciation(text, keywords["cacoepy"])
 
     print(lang, text)
