@@ -208,7 +208,6 @@ class TextProcessor:
         ]
 
         if time_parts:
-            # print(time_parts)
             time_labels = ["时", "分", "秒"]
             for i, part in enumerate(time_parts[:3]):
                 chinese_parts.append(f"{convert(part)}{time_labels[i]}")
