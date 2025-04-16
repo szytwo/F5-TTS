@@ -315,7 +315,7 @@ class TextProcessor:
         # 匹配时间格式的正则表达式
         # 匹配多种日期时间格式
         datetime_pattern = re.compile(
-            r"\d{4}-\d{1,2}-\d{1,2}(?:\s\d{1,2}:\d{1,2}:\d{1,2}(?:,\d{1,3})?)?"
+            r"\d{4}-\d{1,2}-\d{1,2}(?:\s\d{1,2}:\d{1,2}(?::\d{1,2}(?:,\d{1,3})?)?)?"
         )
 
         time_pattern = re.compile(r'\d{1,2}:\d{2}')
