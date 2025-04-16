@@ -1,12 +1,13 @@
-import cn2an
 import datetime
 import json
 import os
 import re
 import traceback
 
+import cn2an
 import fasttext
-from file_utils import logging
+
+from f5_tts.infer.file_utils import logging
 
 
 class TextProcessor:
@@ -181,6 +182,42 @@ class TextProcessor:
                 out_str.append(c)
         return "".join(out_str)
 
+    @staticmethod
+    def convert_datetime_to_chinese(datetime_str):
+        parts = datetime_str.split(" ")
+        date_part = parts[0]
+        year, month, day = date_part.split("-")
+
+        time_parts = []
+        if len(parts) > 1:
+            time_part = parts[1]
+            if "," in time_part:
+                hms, millisecond = time_part.split(",")
+                time_parts.extend(hms.split(":"))
+                time_parts.append(millisecond)
+            else:
+                time_parts.extend(time_part.split(":"))
+
+        def convert(num):
+            return cn2an.an2cn(num.lstrip("0") or "0")
+
+        chinese_parts = [
+            f"{cn2an.an2cn(year, mode='direct')}年",
+            f"{convert(month)}月",
+            f"{convert(day)}日"
+        ]
+
+        if time_parts:
+            # print(time_parts)
+            time_labels = ["时", "分", "秒"]
+            for i, part in enumerate(time_parts[:3]):
+                chinese_parts.append(f"{convert(part)}{time_labels[i]}")
+
+            if len(time_parts) > 3:
+                chinese_parts.append(f"{convert(time_parts[3])}毫秒")
+
+        return "".join(chinese_parts)
+
     # noinspection PyTypeChecker
     @staticmethod
     def replace_chinese_number(text):
@@ -198,20 +235,18 @@ class TextProcessor:
             """
             if not input_str:
                 return input_str
-
+            input_str = input_str.replace(" ", "")
             # 检查是否有百分号
             if input_str.endswith('%'):
                 num_part = input_str[:-1]  # 去掉百分号
                 chinese_num = cn2an.an2cn(num_part, mode="low")
                 return f"百分之{chinese_num}"
-
             # 检查是否含有小数点
             if '.' in input_str:
                 integer_part, decimal_part = input_str.split('.')
                 chinese_integer = cn2an.an2cn(integer_part, mode="low")
                 chinese_decimal = ''.join(cn2an.an2cn(digit, mode="low") for digit in decimal_part)
                 return f"{chinese_integer}点{chinese_decimal}"
-
             # 检查是否有后缀
             for suffix, rule in suffix_rules.items():
                 if input_str.endswith(suffix):
@@ -227,7 +262,6 @@ class TextProcessor:
             # 如果没有后缀且是4位数字，按逐字符转换
             if input_str.isdigit() and len(input_str) == 4 or "00".__eq__(input_str):
                 return cn2an.an2cn(input_str, mode="direct")
-
             # 其他情况按普通数字转换
             return cn2an.an2cn(input_str, mode="low")
 
@@ -263,9 +297,9 @@ class TextProcessor:
         # 逐字符转换的单位
         direct_units = ["年"]
         # 普通数字转换的单位
-        low_units = ["月", "日", "小时", "分钟", "秒", "个", "人", "次", "份", "元", "美元", "米", "千克", "升",
+        low_units = ["%", "月", "日", "小时", "分钟", "秒", "个", "人", "次", "份", "元", "美元", "米", "千克", "升",
                      "遍",
-                     "件", "瓶", "款", "道",'天','多','后','家','双']
+                     "件", "瓶", "款", "道", '天', '多', '后', '家', '双']
         # 动态生成 suffix_rules
         suffix_rules = {}
         for unit in direct_units:
@@ -276,21 +310,29 @@ class TextProcessor:
         units_pattern = "|".join(direct_units + low_units)  # 正则表达式匹配数字部分（包括带单位和不带单位的情况）
         # 正则表达式匹配数字部分（包括带单位和不带单位的情况）
         pattern = re.compile(
-            rf"\d+(?:{units_pattern})|(?<!\d)\d{{4}}(?![{units_pattern}{re.escape(exclude_symbols)}\d])"
+            rf"\d+(?:\s*(?:{units_pattern}))|(?<!\d)\d{{4}}(?![{units_pattern}{re.escape(exclude_symbols)}\d])"
         )
-        # 匹配可能包含小数点的百分比的正则表达式
-        percent_pattern = re.compile(r"\d+(\.\d+)?%?")
         # 匹配时间格式的正则表达式
+        # 匹配多种日期时间格式
+        datetime_pattern = re.compile(
+            r"\d{4}-\d{1,2}-\d{1,2}(?:\s\d{1,2}:\d{1,2}:\d{1,2}(?:,\d{1,3})?)?"
+        )
+
         time_pattern = re.compile(r'\d{1,2}:\d{2}')
         timefull_pattern = re.compile(r'\d{1,2}:\d{2}-\d{1,2}:\d{2}')
+        # 匹配包含小数点(百分比)的正则表达式
+        percent_pattern = re.compile(r"\d+\.\d+%?")
 
         def repl_text(m):
             s = m.group(0)
             # 检查是否为时间格式
-            if timefull_pattern.match(s):
+            if datetime_pattern.match(s):
+                return TextProcessor.convert_datetime_to_chinese(s)
+            elif timefull_pattern.match(s):
                 return convert_timefull_to_chinese(s)
             elif time_pattern.match(s):
                 return convert_time_to_chinese(s)
+
             # 如果包含排除符号
             if any(symbol in s for symbol in exclude_symbols):
                 return s
@@ -303,6 +345,7 @@ class TextProcessor:
                 return s
 
         # 替换时间格式
+        text = datetime_pattern.sub(repl_text, text)
         text = timefull_pattern.sub(repl_text, text)
         text = time_pattern.sub(repl_text, text)
         # 首先替换百分比和小数
