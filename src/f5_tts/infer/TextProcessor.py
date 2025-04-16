@@ -190,6 +190,8 @@ class TextProcessor:
             year, month, day = date_part.split("-")
         elif "/" in date_part:
             year, month, day = date_part.split("/")
+        else:
+            return datetime_str
 
         time_parts = []
         if len(parts) > 1:
