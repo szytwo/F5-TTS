@@ -386,22 +386,22 @@ class TextProcessor:
 
         def repl_text(m):
             s = m.group(0)
-            # 检查是否为时间格式
-            if datetime_pattern.match(s):
-                return TextProcessor.convert_datetime_to_chinese(s)
-            elif timefull_pattern.match(s):
-                return TextProcessor.convert_timefull_to_chinese(s)
-            elif time_pattern.match(s):
-                return TextProcessor.convert_time_to_chinese(s)
-            elif phone_pattern.match(s):
-                s = s.replace("+", "").replace("-", "")
-                return cn2an.an2cn(s, mode="direct")
-
-            # 如果包含排除符号
-            if any(symbol in s for symbol in exclude_symbols):
-                return s
 
             try:
+                # 检查是否为时间格式
+                if datetime_pattern.match(s):
+                    return TextProcessor.convert_datetime_to_chinese(s)
+                elif timefull_pattern.match(s):
+                    return TextProcessor.convert_timefull_to_chinese(s)
+                elif time_pattern.match(s):
+                    return TextProcessor.convert_time_to_chinese(s)
+                elif phone_pattern.match(s):
+                    s = s.replace("+", "").replace("-", "")
+                    return cn2an.an2cn(s, mode="direct")
+                # 如果包含排除符号
+                if any(symbol in s for symbol in exclude_symbols):
+                    return s
+
                 return TextProcessor.convert_num_to_chinese(s, suffix_rules)
             except Exception as e:
                 TextProcessor.log_error(e)
