@@ -245,25 +245,22 @@ class TextProcessor:
         if input_str.startswith("-") or input_str.startswith("+"):
             prefix = "负" if input_str.startswith("-") else ""
             input_str = input_str.replace("+", "").replace("-", "")
-        # 检查是否有百分号
-        if input_str.endswith("%"):
-            num_part = input_str[:-1]  # 去掉百分号
-            chinese_num = cn2an.an2cn(num_part, mode="low")
-            return f"{prefix}百分之{chinese_num}"
-        # 检查是否含有小数点
-        if "." in input_str:
-            integer_part, decimal_part = input_str.split(".")
-            chinese_integer = cn2an.an2cn(integer_part, mode="low")
-            chinese_decimal = "".join(
-                cn2an.an2cn(digit, mode="low") for digit in decimal_part
-            )
-            return f"{prefix}{chinese_integer}点{chinese_decimal}"
+
         input_str = input_str.upper()
         # 检查是否有后缀
         for suffix, rule in suffix_rules.items():
             suffix = suffix.upper()
             if input_str.endswith(suffix):
                 num_part = input_str[: -len(suffix)]  # 去掉后缀
+                # 检查是否有百分号
+                if suffix == "%" or suffix == "‰" or suffix == "‱":
+                    chinese_num = cn2an.an2cn(num_part, mode="low")
+                    center = '百分之'
+                    if input_str.endswith("‰"):
+                        center = '千分之'
+                    elif input_str.endswith("‱"):
+                        center = '万分之'
+                    return f"{prefix}{center}{chinese_num}"
                 if "lengths" in rule and len(num_part) not in rule["lengths"]:
                     # 如果长度不符合规则，按普通数字转换
                     chinese_num = cn2an.an2cn(num_part, mode="low")
@@ -278,7 +275,7 @@ class TextProcessor:
             if current_year - 1 <= year <= current_year + 1:
                 return cn2an.an2cn(input_str, mode="direct")
         # 如果没有后缀
-        if (input_str.isdigit() and len(input_str) in (10, 11)) or input_str.startswith("0"):
+        if input_str.isdigit() and input_str.startswith("0"):
             return cn2an.an2cn(input_str, mode="direct")
         # 其他情况按普通数字转换
         return f'{prefix}{cn2an.an2cn(input_str, mode="low")}'
@@ -322,37 +319,14 @@ class TextProcessor:
         """
 
         # 排除符号
-        exclude_symbols = "/*=$|"
+        exclude_symbols = "+-/*=$|"
         # 逐字符转换的单位
         direct_units = ["年", "后"]
         # 普通数字转换的单位
         low_units = [
-            "%",
-            "月",
-            "日",
-            "小时",
-            "分钟",
-            "秒",
-            "个",
-            "人",
-            "次",
-            "份",
-            "元",
-            "美元",
-            "米",
-            "千克",
-            "升",
-            "遍",
-            "件",
-            "瓶",
-            "款",
-            "道",
-            "天",
-            "多",
-            "家",
-            "双",
-            "KG",
-            "℃"
+            "%", "‰", "‱", "月", "日", "小时", "分钟", "秒", "个", "人", "次", "份",
+            "元", "美元", "米", "千克", "升", "遍", "件", "瓶", "款",
+            "道", "天", "多", "家", "双", "KG", "℃"
         ]
         # 动态生成 suffix_rules
         suffix_rules = {}
@@ -375,45 +349,75 @@ class TextProcessor:
         timefull_pattern = re.compile(r"\d{1,2}:\d{2}-\d{1,2}:\d{2}")
         # 匹配时间格式，8:00
         time_pattern = re.compile(r"\d{1,2}:\d{2}")
-        # 匹配包含小数点(百分比)的正则表达式
-        percent_pattern = re.compile(r"\d+\.\d+%?")
         # 匹配电话号码，包括 +86-13987654321 或 010-1234567
-        phone_pattern = re.compile(r"(?:\+?\d{2,4}-)?(?:\d{2,4}-)?\d{6,11}")
-        # 最后替换其他匹配数字部分（包括带单位和不带单位的情况）
-        pattern = re.compile(
-            rf"[+-]?\d+(?:\s*(?:{units_pattern}))|(?<!\d)[+-]?\d+(?![{units_pattern}{re.escape(exclude_symbols)}\d])"
+        phone_pattern = re.compile(
+            r'(?:\+?86-?1[3-9]\d{9}|1[3-9]\d{9}|\d{3,4}-\d{7,8}|\+\d{1,4}-\d{6,14})'
         )
+        # 最后替换其他匹配数字部分（包括带单位和不带单位的情况）
+        number_pattern = re.compile(
+            rf"[+-]?\d+(?:\.\d+)?(?:\s*(?:{units_pattern}))|(?<!\d)[+-]?\d+(?:\.\d+)?(?![{units_pattern}{re.escape(exclude_symbols)}\d])"
+        )
+        # 数学运算上下文映射
+        math_op_map = {'+': '加', '-': '减', '*': '乘', '/': '除', '=': '等于'}
+        math_pattern = re.compile(
+            r'(?P<l>[+-]?\d+(?:\.\d+)?)\s*(?P<op>[+\-*/=])\s*(?P<r>[+-]?\d+(?:\.\d+)?)'
+        )
+        # 独立符号映射
+        symbol_map = {'+': '加', '-': '杠', '*': '星', '/': '斜杠', '=': '等于'}
+        # 带符号数字（正负）映射
+        sign_pattern = re.compile(r'(?<!\d)(?P<sign>[+\-])(?P<num>\d+(?:\.\d+)?)(?!\d)')
+
+        def repl_math(m):
+            l, op, r = m.group('l'), m.group('op'), m.group('r')
+            l_num = l.lstrip('+-')
+            r_num = r.lstrip('+-')
+            l_prefix = '负' if l.startswith('-') else ('正' if l.startswith('+') else '')
+            r_prefix = '负' if r.startswith('-') else ('正' if r.startswith('+') else '')
+            return f"{l_prefix}{cn2an.an2cn(l_num, mode='low')}{math_op_map[op]}{r_prefix}{cn2an.an2cn(r_num, mode='low')}"
+
+        def repl_sign(m):
+            sign, num = m.group('sign'), m.group('num')
+            return f"{'正' if sign == '+' else '负'}{cn2an.an2cn(num, mode='low')}"
+
+        def repl_phone(m):
+            s = m.group(0)
+            s = s.replace("+", "").replace("-", "")
+            return cn2an.an2cn(s, mode="direct")
+
+        def repl_datetime(m):
+            s = m.group(0)
+            return TextProcessor.convert_datetime_to_chinese(s)
+
+        def repl_timefull(m):
+            s = m.group(0)
+            return TextProcessor.convert_timefull_to_chinese(s)
+
+        def repl_time(m):
+            s = m.group(0)
+            return TextProcessor.convert_time_to_chinese(s)
 
         def repl_text(m):
             s = m.group(0)
-
-            try:
-                # 检查是否为时间格式
-                if datetime_pattern.match(s):
-                    return TextProcessor.convert_datetime_to_chinese(s)
-                elif timefull_pattern.match(s):
-                    return TextProcessor.convert_timefull_to_chinese(s)
-                elif time_pattern.match(s):
-                    return TextProcessor.convert_time_to_chinese(s)
-                elif phone_pattern.match(s):
-                    s = s.replace("+", "").replace("-", "")
-                    return cn2an.an2cn(s, mode="direct")
-                # 如果包含排除符号
-                if any(symbol in s for symbol in exclude_symbols):
-                    return s
-
-                return TextProcessor.convert_num_to_chinese(s, suffix_rules)
-            except Exception as e:
-                TextProcessor.log_error(e)
-                logging.error(f"replace chinese number repl text error：{s}\n{str(e)}")
+            # 如果包含排除符号
+            if any(symbol in s for symbol in exclude_symbols):
                 return s
+            return TextProcessor.convert_num_to_chinese(s, suffix_rules)
 
-        text = datetime_pattern.sub(repl_text, text)
-        text = timefull_pattern.sub(repl_text, text)
-        text = time_pattern.sub(repl_text, text)
-        text = percent_pattern.sub(repl_text, text)
-        text = phone_pattern.sub(repl_text, text)
-        text = pattern.sub(repl_text, text)
+        # 1. 日期、时间
+        text = datetime_pattern.sub(repl_datetime, text)
+        text = timefull_pattern.sub(repl_timefull, text)
+        text = time_pattern.sub(repl_time, text)
+        # 2. 电话号码（优先于数学运算）
+        text = phone_pattern.sub(repl_phone, text)
+        # 3. 数学运算表达式
+        text = math_pattern.sub(repl_math, text)
+        # 4. 带单位数字
+        text = number_pattern.sub(repl_text, text)
+        # 5. 正负数字（避免干扰电话号码）
+        text = sign_pattern.sub(repl_sign, text)
+        # 6. 剩余符号映射
+        for sym, name in symbol_map.items():
+            text = text.replace(sym, name)
 
         return text
 
